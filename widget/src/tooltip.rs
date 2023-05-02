@@ -123,10 +123,6 @@ where
         ]
     }
 
-    fn diff(&self, tree: &mut widget::Tree) {
-        tree.diff_children(&[self.content.as_widget(), &self.tooltip]);
-    }
-
     fn state(&self) -> widget::tree::State {
         widget::tree::State::new(State::default())
     }
@@ -137,6 +133,10 @@ where
 
     fn size(&self) -> Size<Length> {
         self.content.as_widget().size()
+    }
+
+    fn diff(&mut self, tree: &mut crate::core::widget::Tree) {
+        tree.diff_children(std::slice::from_mut(&mut self.content))
     }
 
     fn layout(
