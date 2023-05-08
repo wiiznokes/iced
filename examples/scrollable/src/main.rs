@@ -1,4 +1,5 @@
 use iced::executor;
+use iced::id::Id;
 use iced::theme;
 use iced::widget::scrollable::{Properties, Scrollbar, Scroller};
 use iced::widget::{
@@ -12,7 +13,7 @@ use iced::{
 
 use once_cell::sync::Lazy;
 
-static SCROLLABLE_ID: Lazy<scrollable::Id> = Lazy::new(scrollable::Id::unique);
+static SCROLLABLE_ID: Lazy<Id> = Lazy::new(|| Id::new("scrollable"));
 
 pub fn main() -> iced::Result {
     ScrollableDemo::run(Settings::default())
