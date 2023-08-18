@@ -446,6 +446,7 @@ where
 
         let defaults = renderer::Style {
             text_color: style.text_color.unwrap_or(inherited_style.text_color),
+            scale_factor: inherited_style.scale_factor,
         };
 
         Widget::<(), Theme, Renderer>::draw(

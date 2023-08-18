@@ -3,12 +3,11 @@ use iced::widget::{
     button, column, container, horizontal_space, progress_bar, radio, row,
     scrollable, slider, text, vertical_space,
 };
-use iced::{executor, theme, Alignment, Application, Color};
+use iced::{executor, theme};
 use iced::{
     Alignment, Application, Border, Color, Command, Element, Length, Settings,
     Theme,
 };
-use iced::{Command, Element, Length, Settings, Theme};
 use iced_core::id::Id;
 
 use once_cell::sync::Lazy;
