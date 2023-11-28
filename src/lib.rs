@@ -217,8 +217,8 @@ pub use crate::core::border::{self, Border, Radius};
 pub use crate::core::color;
 pub use crate::core::gradient;
 pub use crate::core::{
-    id, Alignment, Background, Color, ContentFit, Degrees, Gradient, Length,
-    Padding, Pixels, Point, Radians, Rectangle, Size, Vector,
+    id, layout::Limits, Alignment, Background, Color, ContentFit, Degrees,
+    Gradient, Length, Padding, Pixels, Point, Radians, Rectangle, Size, Vector,
 };
 
 pub mod clipboard {
