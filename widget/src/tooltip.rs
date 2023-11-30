@@ -136,7 +136,10 @@ where
     }
 
     fn diff(&mut self, tree: &mut crate::core::widget::Tree) {
-        tree.diff_children(std::slice::from_mut(&mut self.content))
+        tree.diff_children(&mut [
+            self.content.as_widget_mut(),
+            &mut self.tooltip,
+        ])
     }
 
     fn layout(
