@@ -160,7 +160,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let mut state = program::State::new(
-        Id(0),
+        Id::MAIN,
         controls,
         viewport.logical_size(),
         &mut renderer,
