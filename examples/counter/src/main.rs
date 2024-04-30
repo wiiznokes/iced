@@ -1,5 +1,5 @@
 use iced::widget::{button, column, text, Column};
-use iced::Alignment;
+use iced::{Alignment, Element};
 
 pub fn main() -> iced::Result {
     iced::run("A cool counter", Counter::update, Counter::view)
@@ -28,13 +28,16 @@ impl Counter {
         }
     }
 
-    fn view(&self) -> Column<Message> {
-        column![
+    fn view(&self) -> Element<Message> {
+        
+        let content = column![
             button("Increment").on_press(Message::Increment),
             text(self.value).size(50),
             button("Decrement").on_press(Message::Decrement)
         ]
         .padding(20)
-        .align_items(Alignment::Center)
+        .align_items(Alignment::Center);
+
+        LocalState::new()
     }
 }
