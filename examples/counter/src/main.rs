@@ -38,6 +38,6 @@ impl Counter {
         .padding(20)
         .align_items(Alignment::Center);
 
-        LocalState::new()
+        //LocalState::new()
     }
 }

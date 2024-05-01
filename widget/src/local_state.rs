@@ -1,4 +1,6 @@
 
+use std::cell::RefCell;
+
 use crate::core::event::{self, Event};
 use crate::core::layout;
 use crate::core::mouse;
@@ -14,59 +16,73 @@ use crate::core::{
 };
 
 
+type Maker<'a, T, Message, Theme, Renderer> = fn(&T) -> Element<'a, Message, Theme, Renderer>;
+
 #[allow(missing_debug_implementations)]
-pub struct LocalState<'a, Message, Theme = crate::Theme, Renderer = crate::Renderer>
+pub struct LocalState<'a, T, Message, Theme = crate::Theme, Renderer = crate::Renderer>
 where
     Renderer: crate::core::Renderer,
 {
-    content: Element<'a, Message, Theme, Renderer>,
+    state: T,
+    maker: Maker<'a, T, Message, Theme, Renderer>,
+    content: RefCell<Option<Element<'a, Message, Theme, Renderer>>>
 }
 
-impl<'a, Message, Theme, Renderer> LocalState<'a, Message, Theme, Renderer>
+impl<'a, T, Message, Theme, Renderer> LocalState<'a, T, Message, Theme, Renderer>
 where
     Renderer: crate::core::Renderer,
 {
     pub fn new(
-        content: impl Into<Element<'a, Message, Theme, Renderer>>,
+        default: T,
+        content: Maker<'a, T, Message, Theme, Renderer>,
     ) -> Self {
-        let content = content.into();
 
-        Button {
-            content,
+        Self {
+            maker: content,
+            content: RefCell::new(None),
+            state: default
         }
     }
 
    
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-struct State {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct State<T> {
+    pub inner: T
 }
 
-impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
-    for LocalState<'a, Message, Theme, Renderer>
+impl<'a, T, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
+    for LocalState<'a, T, Message, Theme, Renderer>
 where
     Message: 'a + Clone,
     Renderer: 'a + crate::core::Renderer,
+    T: 'static + Clone,
 {
     fn tag(&self) -> tree::Tag {
-        tree::Tag::of::<State>()
+        tree::Tag::of::<State<T>>()
     }
 
     fn state(&self) -> tree::State {
-        tree::State::new(State::default())
+        tree::State::new(State {
+            inner: self.state.clone(),
+        })
     }
 
     fn children(&self) -> Vec<Tree> {
-        vec![Tree::new(&self.content)]
+        vec![Tree::new(self.content.borrow().as_ref().unwrap())]
     }
 
     fn diff(&self, tree: &mut Tree) {
-        tree.diff_children(std::slice::from_ref(&self.content));
+        tree.diff_children(std::slice::from_ref(self.content.borrow().as_ref().unwrap()));
     }
 
     fn size(&self) -> Size<Length> {
-        Size::ZERO
+        Size {
+            // todo: use the size child ?
+            width: Length::Fixed(0.),
+            height: Length::Fixed(0.),
+        }
     }
 
     fn layout(
@@ -75,11 +91,21 @@ where
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        self.content.as_widget().layout(
+
+
+        let state = tree.state.downcast_mut::<State<T>>();
+        
+        let content = (self.maker)(&state.inner);
+        
+        let node = content.as_widget().layout(
             &mut tree.children[0],
             renderer,
             limits,
-        )
+        );
+
+        self.content.borrow_mut().replace(content);
+
+        node
     }
 
     fn operate(
@@ -90,7 +116,7 @@ where
         operation: &mut dyn Operation<Message>,
     ) {
         operation.container(None, layout.bounds(), &mut |operation| {
-            self.content.as_widget().operate(
+            self.content.borrow().as_ref().unwrap().as_widget().operate(
                 &mut tree.children[0],
                 layout.children().next().unwrap(),
                 renderer,
@@ -110,7 +136,8 @@ where
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) -> event::Status {
-        self.content.as_widget_mut().on_event(
+
+        self.content.borrow_mut().as_mut().unwrap().as_widget_mut().on_event(
             &mut tree.children[0],
             event.clone(),
             layout.children().next().unwrap(),
@@ -127,21 +154,19 @@ where
         tree: &Tree,
         renderer: &mut Renderer,
         theme: &Theme,
-        _style: &renderer::Style,
+        style: &renderer::Style,
         layout: Layout<'_>,
         cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
-        self.content.as_widget().draw(
+        self.content.borrow().as_ref().unwrap().as_widget().draw(
             &tree.children[0],
             renderer,
             theme,
-            &renderer::Style {
-                text_color: style.text_color,
-            },
-            content_layout,
+            style,
+            layout,
             cursor,
-            &viewport,
+            viewport,
         );
     }
 
@@ -153,7 +178,7 @@ where
         renderer: &Renderer,
         translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
-        self.content.as_widget_mut().overlay(
+        self.content.borrow_mut().as_mut().unwrap().as_widget_mut().overlay(
             &mut tree.children[0],
             layout.children().next().unwrap(),
             renderer,
@@ -162,13 +187,14 @@ where
     }
 }
 
-impl<'a, Message, Theme, Renderer> From<LocalState<'a, Message, Theme, Renderer>>
+impl<'a, T, Message, Theme, Renderer> From<LocalState<'a, T, Message, Theme, Renderer>>
     for Element<'a, Message, Theme, Renderer>
 where
     Message: Clone + 'a,
     Renderer: crate::core::Renderer + 'a,
+    T: 'static + Clone,
 {
-    fn from(local_state: LocalState<'a, Message, Theme, Renderer>) -> Self {
+    fn from(local_state: LocalState<'a, T, Message, Theme, Renderer>) -> Self {
         Self::new(local_state)
     }
 }
