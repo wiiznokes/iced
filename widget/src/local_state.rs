@@ -1,5 +1,7 @@
 
+use std::borrow::{BorrowMut, Borrow};
 use std::cell::RefCell;
+use std::sync::Arc;
 
 use crate::core::event::{self, Event};
 use crate::core::layout;
@@ -16,7 +18,7 @@ use crate::core::{
 };
 
 
-type Maker<'a, T, Message, Theme, Renderer> = fn(&T) -> Element<'a, Message, Theme, Renderer>;
+type Maker<'a, T, Message, Theme, Renderer> = fn(&mut T) -> Element<'a, Message, Theme, Renderer>;
 
 #[allow(missing_debug_implementations)]
 pub struct LocalState<'a, T, Message, Theme = crate::Theme, Renderer = crate::Renderer>
@@ -25,7 +27,7 @@ where
 {
     state: T,
     maker: Maker<'a, T, Message, Theme, Renderer>,
-    content: RefCell<Option<Element<'a, Message, Theme, Renderer>>>
+    content: Arc<Option<Element<'a, Message, Theme, Renderer>>>
 }
 
 impl<'a, T, Message, Theme, Renderer> LocalState<'a, T, Message, Theme, Renderer>
@@ -39,7 +41,7 @@ where
 
         Self {
             maker: content,
-            content: RefCell::new(None),
+            content: Arc::new(None),
             state: default
         }
     }
@@ -69,12 +71,21 @@ where
         })
     }
 
+    // call fun here
     fn children(&self) -> Vec<Tree> {
-        vec![Tree::new(self.content.borrow().as_ref().unwrap())]
+
+
+        let content = (self.maker)(&mut state.inner);
+        
+        let e = self.content.as_ref().as_ref().unwrap();
+
+        vec![Tree::new(e)]
     }
 
     fn diff(&self, tree: &mut Tree) {
-        tree.diff_children(std::slice::from_ref(self.content.borrow().as_ref().unwrap()));
+        let e = self.content.as_ref().as_ref().unwrap();
+
+        tree.diff_children(std::slice::from_ref(e));
     }
 
     fn size(&self) -> Size<Length> {
@@ -95,7 +106,7 @@ where
 
         let state = tree.state.downcast_mut::<State<T>>();
         
-        let content = (self.maker)(&state.inner);
+        let content = (self.maker)(&mut state.inner);
         
         let node = content.as_widget().layout(
             &mut tree.children[0],
@@ -116,7 +127,7 @@ where
         operation: &mut dyn Operation<Message>,
     ) {
         operation.container(None, layout.bounds(), &mut |operation| {
-            self.content.borrow().as_ref().unwrap().as_widget().operate(
+            self.content.unwrap().as_widget().operate(
                 &mut tree.children[0],
                 layout.children().next().unwrap(),
                 renderer,
@@ -159,7 +170,7 @@ where
         cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
-        self.content.borrow().as_ref().unwrap().as_widget().draw(
+        self.content.as_ref().unwrap().as_widget().draw(
             &tree.children[0],
             renderer,
             theme,
