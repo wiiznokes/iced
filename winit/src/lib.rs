@@ -64,6 +64,7 @@ use std::borrow::Cow;
 use std::mem::ManuallyDrop;
 use std::slice;
 use std::sync::Arc;
+use winit::event_loop::EventLoop;
 
 /// Runs a [`Program`] with the provided settings.
 pub fn run<P>(program: P) -> Result<(), Error>
@@ -71,15 +72,45 @@ where
     P: Program + 'static,
     P::Theme: theme::Base,
 {
-    use winit::event_loop::EventLoop;
-
-    let boot_span = debug::boot();
-    let settings = program.settings();
-    let window_settings = program.window();
-
     let event_loop = EventLoop::with_user_event()
         .build()
         .expect("Create event loop");
+
+    run_inner(program, event_loop)
+}
+
+/// Runs a [`Program`] with the provided settings.
+#[cfg(target_os = "android")]
+pub fn run_android<P>(
+    program: P,
+    app: winit::platform::android::activity::AndroidApp,
+) -> Result<(), Error>
+where
+    P: Program + 'static,
+    P::Theme: theme::Base,
+{
+    use winit::platform::android::EventLoopBuilderExtAndroid;
+
+    let event_loop = EventLoop::with_user_event()
+        .with_android_app(app)
+        .build()
+        .expect("Create event loop");
+
+    run_inner(program, event_loop)
+}
+
+/// Runs a [`Program`] with the provided settings.
+fn run_inner<P>(
+    program: P,
+    event_loop: EventLoop<Action<<P as Program>::Message>>,
+) -> Result<(), Error>
+where
+    P: Program + 'static,
+    P::Theme: theme::Base,
+{
+    let boot_span = debug::boot();
+    let settings = program.settings();
+    let window_settings = program.window();
 
     let backend_settings = backend::Settings::from(&settings);
     let renderer_settings = renderer::Settings::from(&settings);

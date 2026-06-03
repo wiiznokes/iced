@@ -177,12 +177,7 @@ pub struct Application<P: Program> {
 }
 
 impl<P: Program> Application<P> {
-    /// Runs the [`Application`].
-    pub fn run(self) -> Result
-    where
-        Self: 'static,
-        P::Message: message::MaybeDebug + message::MaybeClone,
-    {
+    fn run_inner(self) -> impl Program {
         #[cfg(feature = "debug")]
         iced_debug::init(iced_debug::Metadata {
             name: P::name(),
@@ -206,7 +201,30 @@ impl<P: Program> Application<P> {
         )))]
         let program = self;
 
+        program
+    }
+    /// Runs the [`Application`].
+    pub fn run(self) -> Result
+    where
+        Self: 'static,
+        P::Message: message::MaybeDebug + message::MaybeClone,
+    {
+        let program = self.run_inner();
         Ok(shell::run(program)?)
+    }
+
+    /// Runs the [`Application`].
+    #[cfg(target_os = "android")]
+    pub fn run_android(
+        self,
+        app: iced_winit::winit::platform::android::activity::AndroidApp,
+    ) -> Result
+    where
+        Self: 'static,
+        P::Message: message::MaybeDebug + message::MaybeClone,
+    {
+        let program = self.run_inner();
+        Ok(shell::run_android(program, app)?)
     }
 
     /// Sets the [`Settings`] that will be used to run the [`Application`].
