@@ -137,16 +137,6 @@ where
     let (program, task) = runtime.enter(|| program::Instance::new(program));
     let is_daemon = window_settings.is_none();
 
-    let task = if let Some(window_settings) = window_settings {
-        let mut task = Some(task);
-
-        let (_id, open) = runtime::window::open(window_settings);
-
-        open.then(move |_| task.take().unwrap_or_else(Task::none))
-    } else {
-        task
-    };
-
     if let Some(stream) = runtime::task::into_stream(task) {
         runtime.run(stream);
     }
@@ -158,6 +148,16 @@ where
     let (event_sender, event_receiver) = mpsc::unbounded();
     let (control_sender, control_receiver) = mpsc::unbounded();
     let (system_theme_sender, system_theme_receiver) = oneshot::channel();
+
+    let create_window_task = if let Some(window_settings) = window_settings {
+        Some(
+            runtime::window::open(window_settings)
+                .1
+                .then(|_| Task::none()),
+        )
+    } else {
+        None
+    };
 
     let instance = Box::pin(run_instance::<P>(
         program,
@@ -171,6 +171,7 @@ where
         renderer_settings,
         settings.fonts,
         system_theme_receiver,
+        create_window_task,
     ));
 
     let context = task::Context::from_waker(task::noop_waker_ref());
@@ -216,6 +217,10 @@ where
                         .unwrap_or_default(),
                 );
             }
+            self.process_event(
+                event_loop,
+                Event::EventLoopAwakened(winit::event::Event::Resumed),
+            );
         }
 
         fn new_events(
@@ -511,6 +516,7 @@ async fn run_instance<P>(
     mut renderer_settings: renderer::Settings,
     default_fonts: Vec<Cow<'static, [u8]>>,
     mut _system_theme: oneshot::Receiver<theme::Mode>,
+    mut create_window_task: Option<Task<P::Message>>,
 ) where
     P: Program + 'static,
     P::Theme: theme::Base,
@@ -1225,6 +1231,13 @@ async fn run_instance<P>(
                         } else {
                             let _ =
                                 control_sender.start_send(Control::ChangeFlow(ControlFlow::Wait));
+                        }
+                    }
+                    event::Event::Resumed => {
+                        if let Some(task) = create_window_task.take() {
+                            if let Some(stream) = runtime::task::into_stream(task) {
+                                runtime.run(stream);
+                            }
                         }
                     }
                     _ => {}
