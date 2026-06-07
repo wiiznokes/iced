@@ -208,7 +208,16 @@ where
     where
         F: Future<Output = ()>,
     {
+        fn suspended(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+            log::debug!("Suspended");
+            self.process_event(
+                event_loop,
+                Event::EventLoopAwakened(winit::event::Event::Suspended),
+            );
+        }
+
         fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+            log::debug!("Resumed");
             if let Some(sender) = self.system_theme.take() {
                 let _ = sender.send(
                     event_loop
@@ -240,6 +249,7 @@ where
             window_id: winit::window::WindowId,
             event: winit::event::WindowEvent,
         ) {
+            log::debug!("WindowEvent: {:?}", event);
             #[cfg(target_os = "windows")]
             let is_move_or_resize = matches!(
                 event,
@@ -1238,6 +1248,28 @@ async fn run_instance<P>(
                             if let Some(stream) = runtime::task::into_stream(task) {
                                 runtime.run(stream);
                             }
+                        }
+
+                        let Some(current_compositor) = compositor.as_mut() else {
+                            continue;
+                        };
+
+                        for (_id, window) in window_manager.iter_mut() {
+                            let physical_size = window.state.physical_size();
+
+                            window.surface = current_compositor.create_surface(
+                                window.raw.clone(),
+                                physical_size.width,
+                                physical_size.height,
+                            );
+
+                            current_compositor.configure_surface(
+                                &mut window.surface,
+                                physical_size.width,
+                                physical_size.height,
+                            );
+
+                            window.raw.request_redraw();
                         }
                     }
                     _ => {}
